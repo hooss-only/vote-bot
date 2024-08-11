@@ -2,7 +2,7 @@
   "name": "vote-bot",
   "version": "1.0.0",
   "description": "관리자 권한을 가지고 있는 사람이 사용 가능한 익명 투표 기능을 지원하는 디스코드 봇 프로젝트 입니다.<br>\r discord.js를 활용하였고, 간단한 설정으로 사용할 수 있도록 하였습니다.",
-  "main": "./src/index.js",
+  "main": "./src/index.mjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
