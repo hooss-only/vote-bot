@@ -1,11 +1,14 @@
 import dotenv from 'dotenv';
-import { Client, GatewayIntentBits, Events, PermissionsBitField, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ComponentType } from 'discord.js';
+import { Client, GatewayIntentBits, Events, PermissionsBitField, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
 
 dotenv.config();
 
 let voteName = "";
 let voteDescription = "";
 let voteChannelID = "";
+let up_voters = [];
+let down_voters = [];
+let vote_box = null;
 
 const up = new ButtonBuilder()
     .setCustomId("up")
@@ -39,21 +42,25 @@ client.on(Events.MessageCreate, (msg) => {
     const args = msg.content.slice(1).split(' ');
     const commandName = args[0];
 
-    if (commandName == "투표") {
-        if (args.length < 2 || !['시작', '제목', '내용', '결산', '채널'].includes(args[1])) {
-            msg.reply("!투표 (시작 / 제목 / 내용 / 채널 / 결산)");
+    if (commandName === "투표") {
+        if (args.length < 2 || !['시작', '제목', '내용', '결산', '채널', '미리보기'].includes(args[1])) {
+            msg.reply("!투표 (시작 / 제목 / 내용 / 채널 / 결산 / 미리보기)");
             return;
         }
 
+        let embed;
         switch (args[1]) {
             case "시작":
-                const embed = new EmbedBuilder()
+                if (vote_box != null) {
+                    vote_box.delete()
+                }
+                embed = new EmbedBuilder()
                     .setTitle(voteName)
                     .setTimestamp()
                     .setDescription(voteDescription)
                     .setFooter({ text: "익명 투표봇 by hooss" });
 
-                client.channels.cache.get(voteChannelID).send({ embeds: [embed], components: [row] });
+                vote_box = client.channels.cache.get(voteChannelID).send({ embeds: [embed], components: [row] });
                 break;
             
             case "제목":
@@ -78,9 +85,22 @@ client.on(Events.MessageCreate, (msg) => {
                     break;
                 }
                 voteChannelID = args[2];
+                msg.reply(`투표 채널이 '${client.channels.cache.get(voteChannelID).name}'으로 설정 되었습니다.`);
                 break;
+			
+            case "미리보기":
+				embed = new EmbedBuilder()
+                    .setTitle(voteName)
+                    .setTimestamp()
+                    .setDescription(voteDescription)
+                    .setFooter({ text: "익명 투표봇 by hooss" });
+
+                msg.channel.send({ content: `투표 채널은 '${client.channels.cache.get(voteChannelID).name}'입니다.`, embeds: [embed] });
+				break;
 
             case "결산":
+                vote_box.then(msg => msg.delete());
+                msg.channel.send({ content: `${up_voters.length} ${down_voters.length}` });
                 break;
         }
     }
@@ -89,7 +109,24 @@ client.on(Events.MessageCreate, (msg) => {
 client.on("interactionCreate", (interaction) => {
     if (!interaction.isButton) return;
     
-    console.log(interaction.customId);
+    // vote
+    // if he voted to the same side before, ignores.
+    // and if he voted to the other side before, change it.
+    if (interaction.customId === "up") {
+  	    interaction.reply({ content: "찬성에 투표하셨습니다.", ephemeral: true });
+        if (up_voters.includes(interaction.user.id)) return;
+        if (down_voters.includes(interaction.user.id)) {
+            down_voters.pop(down_voters.indexOf(interaction.user.id));
+        }
+        up_voters.push(interaction.user.id);
+	} else if (interaction.customId === "down") {
+		interaction.reply({ content: "반대에 투표하셨습니다.", ephemeral: true });
+        if (down_voters.includes(interaction.user.id)) return;
+        if (up_voters.includes(interaction.user.id)) {
+            up_voters.pop(up_voters.indexOf(interaction.user.id));
+        }
+        down_voters.push(interaction.user.id);
+	}
 
     return;
 });
