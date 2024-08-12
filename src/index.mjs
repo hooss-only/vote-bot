@@ -5,7 +5,7 @@ dotenv.config();
 
 let voteName = "";
 let voteDescription = "";
-let voteChannelID = "";
+let voteChannelID = ""; let logChannelID = "";
 let up_voters = [];
 let down_voters = [];
 let vote_box = null;
@@ -43,16 +43,20 @@ client.on(Events.MessageCreate, (msg) => {
     const commandName = args[0];
 
     if (commandName === "투표") {
-        if (args.length < 2 || !['시작', '제목', '내용', '결산', '채널', '미리보기'].includes(args[1])) {
-            msg.reply("!투표 (시작 / 제목 / 내용 / 채널 / 결산 / 미리보기)");
+        if (args.length < 2 || !['시작', '제목', '내용', '결산', '채널', '미리보기', '로그'].includes(args[1])) {
+            msg.reply("!투표 (시작 / 제목 / 내용 / 채널 / 결산 / 미리보기 / 로그)");
             return;
         }
 
         let embed;
         switch (args[1]) {
             case "시작":
+                if (voteName === "" || voteDescription === "" || logChannelID === "" || voteChannelID === "") {
+                    msg.reply("설정이 모두 되지 않았습니다.");
+                    return;
+                }
                 if (vote_box != null) {
-                    vote_box.delete()
+                    vote_box.then(msg => msg.delete());
                 }
                 embed = new EmbedBuilder()
                     .setTitle(voteName)
@@ -78,6 +82,15 @@ client.on(Events.MessageCreate, (msg) => {
                 }
                 voteDescription = args.slice(2).join(' ');
                 break;
+
+            case "로그":
+                if (args.length < 3) {
+                    msg.reply("!투표 로그 <ID>");
+                    break;
+                }
+                logChannelID = args[2];
+                msg.reply(`투표 로그 채널이 '${client.channels.cache.get(logChannelID).name}'으로 설정 되었습니다.`);
+                break;
             
             case "채널":
                 if (args.length < 3) {
@@ -99,8 +112,22 @@ client.on(Events.MessageCreate, (msg) => {
 				break;
 
             case "결산":
+                let r_text = "";
+                if (up_voters.length > down_voters.length) {
+                    r_text = "찬성 승";
+                } else if (up_voters.length < down_voters.length) {
+                    r_text = "반대 승";
+                } else {
+                    r_text = "무승부";
+                }
+
+                let result = new EmbedBuilder()
+                    .setTitle(`${voteName}, ${r_text} `)
+                    .setDescription(`${up_voters.length} : ${down_voters.length}`)
+                    .setTimestamp()
+                    .setFooter({ text: "익명 투표봇 by hooss" });
                 vote_box.then(msg => msg.delete());
-                msg.channel.send({ content: `${up_voters.length} ${down_voters.length}` });
+                client.channels.cache.get(voteChannelID).send({ embeds: [result]});
                 break;
         }
     }
@@ -119,6 +146,7 @@ client.on("interactionCreate", (interaction) => {
             down_voters.pop(down_voters.indexOf(interaction.user.id));
         }
         up_voters.push(interaction.user.id);
+        client.channels.cache.get(logChannelID).send(`<@${interaction.user.id}>, **찬성** 진영에 투표하였습니다. ${up_voters.length} : ${down_voters.length}`);
 	} else if (interaction.customId === "down") {
 		interaction.reply({ content: "반대에 투표하셨습니다.", ephemeral: true });
         if (down_voters.includes(interaction.user.id)) return;
@@ -126,6 +154,7 @@ client.on("interactionCreate", (interaction) => {
             up_voters.pop(up_voters.indexOf(interaction.user.id));
         }
         down_voters.push(interaction.user.id);
+        client.channels.cache.get(logChannelID).send(`<@${interaction.user.id}>, **반대** 진영에 투표하였습니다. ${up_voters.length} : ${down_voters.length}`);
 	}
 
     return;
